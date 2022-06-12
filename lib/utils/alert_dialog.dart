@@ -3,7 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socialmediaapp/local_db/user_state_hive_helper.dart';
 import 'package:socialmediaapp/screens/login.dart';
 import 'package:socialmediaapp/utils/authentication.dart';
 import 'package:socialmediaapp/utils/colors.dart';
@@ -11,7 +11,7 @@ import 'package:socialmediaapp/utils/colors.dart';
 class AlertDialogHelper {
   static Future<dynamic> notificationAlert(
       BuildContext context,RemoteMessage message) {
-    print("message-----${message.data['id']}");
+    print("message-----${message.data['type']}");
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -26,9 +26,8 @@ class AlertDialogHelper {
             actions: [
               ElevatedButton(
                 onPressed: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  AuthenticationHelper.updateFriendList(prefs.getString('userId')!, message.data['id']);
-                  AuthenticationHelper.updateFriendList( message.data['id'], prefs.getString('userId')!);
+                  AuthenticationHelper.updateFriendList(await UserStateHiveHelper.instance.getUserId(), message.data['id']);
+                  AuthenticationHelper.updateFriendList( message.data['id'], await UserStateHiveHelper.instance.getUserId());
                   Navigator.pop(context);
                 },
                 child: Text('Accept'),

@@ -1,13 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socialmediaapp/screens/home_screen.dart';
+import 'package:socialmediaapp/utils/alert_dialog.dart';
 import 'package:socialmediaapp/utils/authentication.dart';
+import 'package:socialmediaapp/utils/colors.dart';
 import 'package:socialmediaapp/widgets/custom_text_fields.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-String? userId;
-String? username;
+/*String? userId;
+String? username;*/
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -18,6 +19,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _pwdController = TextEditingController();
+  AlertDialogHelper _alertDialogHelper =AlertDialogHelper();
+  bool isLoading=false;
 
 
   @override
@@ -29,9 +32,10 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Center(
-          child: Column(
+          child: isLoading?const CircularProgressIndicator():Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
+              Spacer(),
               CustomTextfield(
                 autovalidateMode: AutovalidateMode.disabled,
                 labelText: "Email",
@@ -59,31 +63,60 @@ class _LoginScreenState extends State<LoginScreen> {
                   FocusScope.of(context).unfocus();
                 },
               ),
-              const SizedBox(
-                height: 20,
-              ),
-              ElevatedButton(onPressed: () async{
-                UserCredential? credential=await AuthenticationHelper.signInWithEmail(_emailController.text.trim(), _pwdController.text.trim());
-                if(credential!=null && credential.user!=null){
-                  print("logged in------");
-                  AuthenticationHelper.updateDeviceToken(credential.user!.uid).then((value) =>Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const HomeScreen())).catchError((error) => print("Failed to update deviceToken: $error"))
-                  );
-                  // Obtain shared preferences.
-                  final prefs=await SharedPreferences.getInstance();
-                  await prefs.setString('userId',credential.user!.uid );
-                  await prefs.setString('username',credential.user!.email!.substring(0,credential.user!.email!.indexOf('@')) );
+              Spacer(),
 
-                }
-              }, child: const Text("Login")),
+              Container(
+                width: MediaQuery.of(context).size.width/1.2,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(elevation: 0),
+                    onPressed: () async{
+                  setState(() {
+                    isLoading=true;
+                  });
+                  String message=await AuthenticationHelper.signInWithEmail(_emailController.text.trim(), _pwdController.text.trim());
+
+                  if(message=='Success'){
+                    print("logged in------");
+                      Navigator.pushReplacement(context, MaterialPageRoute(
+                          builder: (context) => const HomeScreen()));
+                  }
+                  else{
+                    setState(() {
+                      isLoading=false;
+                    });
+                    _alertDialogHelper.showSnackbar(context, message,color: AppColors.danger);
+                  }
+                }, child: const Text("Login")),
+              ),
               const SizedBox(
                 height: 20,
               ),
-              ElevatedButton(onPressed: () async{
-                UserCredential? credential= await AuthenticationHelper.registerWithEmail(_emailController.text.trim(), _pwdController.text.trim());
-                if(credential!=null && credential.user!=null ){
-                  AuthenticationHelper.addUser(credential.user!.email!,_pwdController.text.trim(), credential.user!.email!.substring(0,credential.user!.email!.indexOf('@')),credential.user!.uid);
-                }
-              }, child: const Text("Sign up"))
+              Container(
+                width: MediaQuery.of(context).size.width/1.2,
+                height: 50,
+                child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(elevation: 0),
+
+                    onPressed: () async{
+                  isLoading=true;
+                  String message= await AuthenticationHelper.registerWithEmail(_emailController.text.trim(), _pwdController.text.trim());
+                  setState(() {
+                    isLoading=false;
+                  });
+                  if(message=='Success'){
+                    _alertDialogHelper.showSnackbar(context, "You are successfully onboarded!",color: AppColors.success);
+                    Navigator.pushReplacement(context, MaterialPageRoute(
+                        builder: (context) => const HomeScreen()));
+                  }
+                  else{
+                    _alertDialogHelper.showSnackbar(context, message,color: AppColors.danger);
+                  }
+                }, child: const Text("Sign up")),
+              ),
+               SizedBox(
+                height: 40,
+              ),
             ],
           ),
         ),

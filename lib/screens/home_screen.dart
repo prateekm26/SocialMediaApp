@@ -1,16 +1,20 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socialmediaapp/local_db/user_state_hive_helper.dart';
 import 'package:socialmediaapp/screens/Friends.dart';
 import 'package:socialmediaapp/screens/feed_screen.dart';
 import 'package:socialmediaapp/screens/login.dart';
+import 'package:socialmediaapp/screens/profile.dart';
 import 'package:socialmediaapp/utils/alert_dialog.dart';
+import 'package:socialmediaapp/utils/authentication.dart';
 import 'package:socialmediaapp/utils/colors.dart';
 import 'package:socialmediaapp/utils/feed_manager.dart';
 import 'package:socialmediaapp/widgets/camera_bottom_sheet.dart';
+import 'package:socialmediaapp/widgets/profile_image_widget.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -22,11 +26,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int pageIndex = 0;
+  bool isLoading=false;
 String? userId;
 String? username;
   final pages = [
-     Feed(),
+     const Feed(),
     const Friends(),
+    const ProfileScreen()
   ];
 @override
   void initState() {
@@ -36,60 +42,86 @@ String? username;
   }
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xffC4DFCB),
-      appBar: AppBar(
-        elevation: 0,
-        leadingWidth: 120,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Center(child: Text("$username",style: const TextStyle(color: Colors.black,fontWeight:FontWeight.bold),)),
-        ),
-        title: Text(
-          "Instagram",
-          style: TextStyle(
-            color: Theme.of(context).primaryColor,
-            fontSize: 25,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [IconButton(onPressed:(){
-          showCameraBottomSheet(context, _onPressedCamera, _onPressedGallery);
-        }, icon: Icon(
-          Icons.add_a_photo_outlined,
-          color: Theme.of(context).primaryColor,
-        )),IconButton(onPressed:logOut, icon: Icon(
-          Icons.logout,
-          color: Theme.of(context).primaryColor,
-        ))],
-        centerTitle: true,
-        backgroundColor: Colors.white,
-      ),
-      body: pages[pageIndex],
-      bottomNavigationBar: buildMyNavBar(context),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: AuthenticationHelper.users.doc(userId).snapshots(),
+      builder: (context, snapshot) {
+        if(snapshot.hasError) {
+          return Container();
+        } else if(!(snapshot.hasData)){
+          return Center(child: const CircularProgressIndicator());
+        }
+        else {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              elevation: 0,
+              leadingWidth: 120,
+              leading: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Center(child: Text(
+                  "${AuthenticationHelper.instance.userModel.username}",
+                  style: const TextStyle(
+                      color: Colors.black, fontWeight: FontWeight.bold),)),
+              ),
+              title: Text(
+                "Instagram",
+                style: TextStyle(
+                  color: Theme
+                      .of(context)
+                      .primaryColor,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              actions: [IconButton(onPressed: () {
+                showCameraBottomSheet(
+                    context, _onPressedCamera, _onPressedGallery);
+              }, icon: Icon(
+                Icons.add_a_photo_outlined,
+                color: Theme
+                    .of(context)
+                    .primaryColor,
+              )), IconButton(onPressed: logOut, icon: Icon(
+                Icons.logout,
+                color: Theme
+                    .of(context)
+                    .primaryColor,
+              ))
+              ],
+              centerTitle: true,
+              backgroundColor: Colors.white,
+            ),
+            body: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : pages[pageIndex],
+            bottomNavigationBar: buildMyNavBar(context, snapshot),
+          );
+        }
+      }
     );
   }
   Future<void> getUsers() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userId=prefs.getString('userId');
-      username= prefs.getString('username');
-
-    });
-
+  AuthenticationHelper.instance.getUser();
+     String id= await UserStateHiveHelper.instance.getUserId();
+     String name= await UserStateHiveHelper.instance.getUserName();
+setState(() {
+  userId=id;
+  username=name;
+});
   }
-  Container buildMyNavBar(BuildContext context) {
+  Container buildMyNavBar(BuildContext context, AsyncSnapshot<DocumentSnapshot<Object?>> snapshot,) {
     return Container(
       height: 60,
       decoration: const BoxDecoration(
-        color: Colors.black,
+        color: Colors.white,
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(0),
+          topRight: Radius.circular(0),
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           IconButton(
             enableFeedback: false,
@@ -100,13 +132,13 @@ String? username;
             },
             icon: pageIndex == 0
                 ? const Icon(
-              Icons.home_outlined,
-              color: Colors.blue,
+              Icons.feed,
+              color: Colors.black,
               size: 30,
             )
                 : const Icon(
-              Icons.home_outlined,
-              color: Colors.white,
+              Icons.feed_outlined,
+              color: Colors.black,
               size: 28,
             ),
           ),
@@ -119,27 +151,42 @@ String? username;
             },
             icon: pageIndex == 1
                 ? const Icon(
-              Icons.people_alt_outlined,
-              color: Colors.blue,
+              Icons.people_alt,
+              color: Colors.black,
               size: 30,
             )
                 : const Icon(
               Icons.people_alt_outlined,
-              color: Colors.white,
+              color: Colors.black,
               size: 28,
             ),
           ),
-
+                 IconButton(
+                  enableFeedback: false,
+                  onPressed: () {
+                    setState(() {
+                      pageIndex = 2;
+                    });
+                  },
+                  icon: pageIndex == 2
+                      ? ProfileImageWidget(
+                    profileImage: snapshot.data!['profileImage'],
+                    height: 35,
+                    width: 35,
+                    borderWidth: 1.5,
+                    borderColor: Colors.black,)
+                      : ProfileImageWidget(
+                    profileImage: snapshot.data!['profileImage'], height: 35, width: 35,),
+                )
         ],
       ),
     );
   }
 
   Future<void> logOut() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.remove('userId');
-    Navigator.push(context, MaterialPageRoute(builder: (context)=>const LoginScreen()));
-  }
+    UserStateHiveHelper.instance.logOut();
+    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (context) =>
+        LoginScreen()), (Route<dynamic> route) => false);  }
   /// Handle camera icon tap to change profile image
   void _onPressedCamera() async {
     var status = await Permission.camera.status;
@@ -152,16 +199,37 @@ String? username;
     }
     if (status.isGranted) {
       Navigator.pop(context);
+      setState(() {
+        isLoading=true;
+      });
       File? _imageFile = await _getImage(ImageSource.camera, context);
       if (_imageFile != null) {
         String response = await FeedManager.uploadImageToFirebase(context, _imageFile);
         if (response != "Failed") {
-        FeedManager.addPost(username!, userId!, response);
-        } else {
+        String message= await FeedManager.addPost(userId!,response);
+        setState(() {
+          isLoading= false;
+        });
+        if(message=="Success"){
+          AlertDialogHelper()
+              .showSnackbar(context, "Post has been successfully uploaded", color: AppColors.success);
+        }
+        else{
+          AlertDialogHelper()
+              .showSnackbar(context, message, color: AppColors.danger);
+        }
+        }
+         else {
+          setState(() {
+            isLoading= false;
+          });
            AlertDialogHelper()
               .showSnackbar(context, response, color: AppColors.danger);
         }
       }
+      setState(() {
+        isLoading=false;
+      });
     }
   }
   /// Handle camera icon tap to change profile image
@@ -176,16 +244,36 @@ String? username;
     }
     if (status.isGranted) {
       Navigator.pop(context);
+      setState(() {
+        isLoading=true;
+      });
       File? _imageFile = await _getImage(ImageSource.gallery, context);
       if (_imageFile != null) {
         String response = await FeedManager.uploadImageToFirebase(context, _imageFile);
         if (response != "Failed") {
-          FeedManager.addPost(username!, userId!, response);
+          String message= await FeedManager.addPost(userId!, response);
+          setState(() {
+            isLoading=false;
+          });
+          if(message=="Success"){
+            AlertDialogHelper()
+                .showSnackbar(context, "Post has been successfully uploaded", color: AppColors.success);
+          }
+          else{
+            AlertDialogHelper()
+                .showSnackbar(context, message, color: AppColors.danger);
+          }
         } else {
+          setState(() {
+            isLoading=false;
+          });
           AlertDialogHelper()
               .showSnackbar(context, response, color: AppColors.danger);
         }
       }
+      setState(() {
+        isLoading=false;
+      });
     }
   }
   /// Function for pick image through image picker
@@ -196,7 +284,7 @@ String? username;
       XFile? image = await _picker.pickImage(
           source: source,
           preferredCameraDevice: CameraDevice.front,
-          imageQuality: 10);
+          imageQuality: 70);
       if (image == null) {
         return _image!;
       } else {

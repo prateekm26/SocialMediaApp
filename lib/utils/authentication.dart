@@ -3,52 +3,71 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:socialmediaapp/local_db/user_state_hive_helper.dart';
 import 'package:socialmediaapp/user_model.dart';
-import 'package:socialmediaapp/user_model.dart';
+import 'package:socialmediaapp/utils/alert_dialog.dart';
 
 class AuthenticationHelper{
+  AuthenticationHelper.__internal();
+  static final AuthenticationHelper _instance = AuthenticationHelper.__internal();
+  static AuthenticationHelper get instance => _instance;
+
   UserModel _userModel = UserModel();
   static CollectionReference users = FirebaseFirestore.instance.collection('users');
 
   ///Sign in with email and password
-  static Future<UserCredential?> signInWithEmail(String emailAddress, password) async{
+  static Future<String> signInWithEmail(String emailAddress, password) async{
     try {
-      return  await FirebaseAuth.instance.signInWithEmailAndPassword(
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: emailAddress,
           password: password
-      );
+      ).then((value) {
+        updateDeviceToken(value.user!.uid);
+        UserStateHiveHelper.instance.setUserId(value.user!.uid);
+        UserStateHiveHelper.instance.setUserName(value.user!.email!.substring(0,value.user!.email!.indexOf('@')));
+        UserStateHiveHelper.instance.logIn();
+      });
+        return "Success";
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
-        print('No user found for that email.');
+        return 'No user found for that email.';
       } else if (e.code == 'wrong-password') {
-        print('Wrong password provided for that user.');
+        return 'Wrong password provided for that user.';
       }
-      return null;
+      return "Failed to login";
     }
   }
 
   /// Signup with email and password
-  static Future<UserCredential?> registerWithEmail(String emailAddress, String password) async{
+  static Future<String> registerWithEmail(String emailAddress, String password) async{
     try {
-       return await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: emailAddress,
         password: password,
-      );
+      ).then((value) {
+        addUser(value.user!.email!,password, value.user!.email!.substring(0,value.user!.email!.indexOf('@')),value.user!.uid, );
+        UserStateHiveHelper.instance.setUserId(value.user!.uid);
+        UserStateHiveHelper.instance.setUserName(value.user!.email!.substring(0,value.user!.email!.indexOf('@')));
+        UserStateHiveHelper.instance.logIn();
+        });
+        return "Success";
+
     } on FirebaseAuthException catch (e) {
       if (e.code == 'weak-password') {
-        print('The password provided is too weak.');
+        return 'The password provided is too weak.';
       } else if (e.code == 'email-already-in-use') {
-        print('The account already exists for that email.');
+        return 'The account already exists for that email.';
       }
     } catch (e) {
       print(e);
+      return "Failed to Sign up";
     }
-    return null;
+    return "Failed to Sign up";
   }
 
   ///Add new user into database
 // Create a CollectionReference called users that references the firestore collection
-  static Future<void> addUser(String emailAddress, String password,String username, String userId) async {
+  static Future<void> addUser(String emailAddress, String password,String username, String userId,) async {
     return
         users.doc(userId).set({
       'emailAddress':emailAddress,
@@ -56,20 +75,12 @@ class AuthenticationHelper{
       'username': username,
       'userId':userId,
       'deviceToken':await getFCMToken(),
-          'friendList':[userId]
+          'friendList':[userId],
+          "sentRequest":[],
+          'receiveRequest':[],
+          'profileImage':""
     }).then((value) => print("User Added-----"))
          .catchError((error) => print("Failed to add user: $error"));
-    // Call the user's CollectionReference to add a new user
-     //print(await getFCMToken());
-    // return users.add({
-    //   'emailAddress':emailAddress,
-    //   'password':password,
-    //   'username': username,
-    //   'userId':userId,
-    //   'deviceToken':await getFCMToken()
-    // })
-    //     .then((value) => print("User Added"))
-    //     .catchError((error) => print("Failed to add user: $error"));
   }
 
   /// update users device token detail from database
@@ -87,16 +98,42 @@ class AuthenticationHelper{
         .then((value) => print("User Updated"))
         .catchError((error) => print("Failed to update user: $error"));
   }
+
+  /// delete sent request from database
+   Future<void> deleteSentRequest(String userId, String friendUserId) async {
+    return users.doc(userId)
+        .update({'sentRequest':FieldValue.arrayRemove([friendUserId])})
+        .then((value) => print("User Updated"))
+        .catchError((error) => print("Failed to update user: $error"));
+  }
+  /// delete received request from database
+   Future<void> deleteReceivedRequest(String userId, String friendUserId) async {
+    return users.doc(userId)
+        .update({'receiveRequest':FieldValue.arrayRemove([friendUserId])})
+        .then((value) => print("User Updated"))
+        .catchError((error) => print("Failed to update user: $error"));
+  }
+
+  /// update users friend request list   from database
+   Future<void> updateFriendRequestList(String userId, String friendUserId) async {
+    return users.doc(userId)
+        .update({'sentRequest': FieldValue.arrayUnion([friendUserId])})
+        .then((value){
+      users.doc(friendUserId)
+          .update({'receiveRequest': FieldValue.arrayUnion([userId])});
+          print("request sent");} )
+        .catchError((error) => print("Failed to sent  request: $error"));
+  }
   /// update users friend list token detail from database
-    Future<void> getUserList(String userId) async {
+    Future<void> getUser() async {
+    String userId= await UserStateHiveHelper.instance.getUserId();
     FirebaseFirestore.instance
         .collection('users')
         .doc(userId)
         .snapshots().listen(((DocumentSnapshot documentSnapshot) { if (documentSnapshot.exists) {
       print('Document exists on the database');
       _userModel = UserModel.fromJson(jsonDecode(jsonEncode(documentSnapshot.data())));
-      print('${jsonDecode(jsonEncode(documentSnapshot.data()))}');
-      print('data----${documentSnapshot.data()}');
+     // print('${jsonDecode(jsonEncode(documentSnapshot.data()))}');
     }}));
          }
 
@@ -105,6 +142,13 @@ class AuthenticationHelper{
   /// get device token using firebase
   static Future<String?> getFCMToken() async {
     return await FirebaseMessaging.instance.getToken();
+  }
+    Future<String> getProfileUrl(String userId)  async{
+       String url= await FirebaseFirestore.instance
+        .collection('users').doc(userId).get().then((value) {
+          print("profileImage-------${value.data()!['profileImage']}");
+        return value.data()!['profileImage'];}).catchError((error) => print("Failed to get profile image: $error"));
+       return url;
   }
 
 }

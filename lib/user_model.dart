@@ -5,6 +5,7 @@ class UserModel {
   String? userId;
   String? username;
   String? deviceToken;
+  String? profileImage;
 
   UserModel(
       {this.emailAddress,
@@ -12,7 +13,8 @@ class UserModel {
         this.friendList,
         this.userId,
         this.username,
-        this.deviceToken});
+        this.deviceToken,
+      this.profileImage});
 
   UserModel.fromJson(Map<String, dynamic> json) {
     emailAddress = json['emailAddress'];
@@ -21,6 +23,8 @@ class UserModel {
     userId = json['userId'];
     username = json['username'];
     deviceToken = json['deviceToken'];
+    profileImage = json['profileImage'];
+
   }
 
   Map<String, dynamic> toJson() {
@@ -31,6 +35,8 @@ class UserModel {
     data['userId'] = userId;
     data['username'] = username;
     data['deviceToken'] = deviceToken;
+    data['profileImage'] = profileImage;
+
     return data;
   }
 }

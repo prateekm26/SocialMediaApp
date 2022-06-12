@@ -35,26 +35,28 @@ class FirebaseMessagingHelper {
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       log('On Message: ${message.notification!.body}');
-      AlertDialogHelper.notificationAlert(navigatorKey.currentContext!, message);
+      message.data['type']=="requestSent"?AlertDialogHelper.notificationAlert(navigatorKey.currentContext!, message):null;
     });
   }
 /// Send notification
   static Future<void> sendNotification(
-      String username, String firebaseToken, String userId) async {
+      String username, String firebaseToken, String userId, String messageTitle, String messageBody,{String type=""}) async {
     var _url = "https://fcm.googleapis.com/fcm/send";
     final Map<String, dynamic> data = {
       "notification": {
-        "body": "Do you want to connect?",
-        "title": "$username sent you a friend request",
+        "body": messageBody,
+        "title": "$username"+messageTitle,
         // "id": receiverId
       },
       "priority": "high",
       "data": {
         "click_action": "FLUTTER_NOTIFICATION_CLICK",
         "id": userId,
-        "status": "done"
+        "status": "done",
+        "type":type
+
       },
-      "to": firebaseToken
+      "to": firebaseToken,
     };
     final Map<String, String> headers = {
       'Content-Type': 'application/json',
