@@ -21,8 +21,8 @@ class _SplashScreenState extends State<SplashScreen> {
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
       bool isLoggedIn = await UserStateHiveHelper.instance.isLoggedIn();
       isLoggedIn?Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (context) =>
-          HomeScreen()), (Route<dynamic> route) => false):Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (context) =>
-          LoginScreen()), (Route<dynamic> route) => false);
+          const HomeScreen()), (Route<dynamic> route) => false):Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (context) =>
+          const LoginScreen()), (Route<dynamic> route) => false);
     });
   }
   @override

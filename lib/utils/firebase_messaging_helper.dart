@@ -29,13 +29,19 @@ class FirebaseMessagingHelper {
 
   /// call this method to listen notification
   void notificationListeners() {
-    FirebaseMessaging.instance.getInitialMessage().then((value) async {});
+    FirebaseMessaging.instance.getInitialMessage().then((value) async {
+      //value.data['type']=="requestSent"?AlertDialogHelper.notificationAlert(navigatorKey.currentContext!, message):AlertDialogHelper.callAlert(navigatorKey.currentContext!, message);
 
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {});
+    });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
+     // message.data['type']=="requestSent"?AlertDialogHelper.notificationAlert(navigatorKey.currentContext!, message):AlertDialogHelper.callAlert(navigatorKey.currentContext!, message);
+
+    });
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       log('On Message: ${message.notification!.body}');
-      message.data['type']=="requestSent"?AlertDialogHelper.notificationAlert(navigatorKey.currentContext!, message):null;
+      message.data['type']=="requestSent"?AlertDialogHelper.notificationAlert(navigatorKey.currentContext!, message):AlertDialogHelper.callAlert(navigatorKey.currentContext!, message);
     });
   }
 /// Send notification

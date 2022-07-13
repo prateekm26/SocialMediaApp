@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,12 +7,19 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
+import 'package:socialmediaapp/Models/FeedModel.dart';
 import 'package:socialmediaapp/local_db/user_state_hive_helper.dart';
-import 'package:socialmediaapp/utils/authentication.dart';
 
-class FeedManager{
-  static CollectionReference feedPosts = FirebaseFirestore.instance.collection('feedPosts');
-  static CollectionReference users = FirebaseFirestore.instance.collection('users');
+ValueNotifier<int> postCounter = ValueNotifier<int>(0);
+ValueNotifier<List<FeedModel>> personalFeed =
+    ValueNotifier<List<FeedModel>>([]);
+ValueNotifier<List<FeedModel>> feedData1 = ValueNotifier<List<FeedModel>>([]);
+
+class FeedManager {
+  static CollectionReference feedPosts =
+      FirebaseFirestore.instance.collection('feedPosts');
+  static CollectionReference users =
+      FirebaseFirestore.instance.collection('users');
 
   ///Upload profile picture to firebase storage
   static Future<String> uploadImageToFirebase(
@@ -20,7 +27,7 @@ class FeedManager{
     try {
       String fileName = path.basename(_imageFile.path);
       Reference firebaseStorageRef =
-      FirebaseStorage.instance.ref().child('feedPosts/$fileName');
+          FirebaseStorage.instance.ref().child('feedPosts/$fileName');
       UploadTask uploadTask = firebaseStorageRef.putFile(_imageFile);
       TaskSnapshot taskSnapshot = await uploadTask;
       String url = await taskSnapshot.ref.getDownloadURL();
@@ -41,7 +48,7 @@ class FeedManager{
       String fileName = path.basename(_imageFile.path);
       print("file name $fileName");
       Reference firebaseStorageRef =
-      FirebaseStorage.instance.ref().child('profileImages/$fileName');
+          FirebaseStorage.instance.ref().child('profileImages/$fileName');
       UploadTask uploadTask = firebaseStorageRef.putFile(_imageFile);
       TaskSnapshot taskSnapshot = await uploadTask;
       String url = await taskSnapshot.ref.getDownloadURL();
@@ -53,56 +60,56 @@ class FeedManager{
       return "Failed";
     }
   }
+
   ///Add new post into database
 // Create a CollectionReference called feedPost that references the firestore collection
-  static Future<String> addPost(String userId, String postUrl) async {
-      feedPosts.doc().set({
-        'postUrl':postUrl,
-        'userId':userId,
-        'likes':[],
-      }).then((value) { print("post uploaded-----");
-      return "Success";})
-          .catchError((error) { print("Failed to upload post: $error");
-          return error;});
-return "Success";
+  static Future<String> addPost(String postUrl) async {
+    String userId= await UserStateHiveHelper.instance.getUserId();
+    String feedId = userId + DateTime.now().microsecondsSinceEpoch.toString();
+    feedPosts.doc(feedId).set({
+      'postUrl': postUrl,
+      'userId': userId,
+      'likes': [],
+      'feedId': feedId,
+      'postedAt': DateTime.now().millisecondsSinceEpoch,
+    }).then((value) {
+      print("post uploaded-----");
+      return "Success";
+    }).catchError((error) {
+      print("Failed to upload post: $error");
+      return error;
+    });
+    return "Success";
   }
 
-  // Create a CollectionReference called feedPost that references the firestore collection
-  /*static Future<String> addPostNew( String userId, String postUrl) async {
-   Map<String, dynamic> feeds=  {};
-   feeds['likes']=[];
-    feeds['postUrl']=postUrl;
-    feeds['userId']=userId;
-
-    feedPost.doc("userFeeds").set({
-      'feed': []
-    }).then((value) { print("post uploaded-----");
-    return "Success";})
-        .catchError((error) { print("Failed to upload post: $error");
-    return error;});
-    return "Success";
-  }*/
   /// update like list   from database
-  static Future<void> updateLikes(String postId,) async {
-    String userId= await UserStateHiveHelper.instance.getUserId();
-    return feedPosts.doc(postId)
-        .update({'likes': FieldValue.arrayUnion([userId])})
+  static Future<void> updateLikes(
+    String postId,
+  ) async {
+    String userId = await UserStateHiveHelper.instance.getUserId();
+    return feedPosts
+        .doc(postId)
+        .update({
+          'likes': FieldValue.arrayUnion([userId])
+        })
         .then((value) => print("Likes Updated"))
         .catchError((error) => print("Failed to update likes: $error"));
   }
 
   /// update profile picture from database
   static Future<String> updateProfilePicture(String profileImage) async {
-    String userId= await UserStateHiveHelper.instance.getUserId();
-     users.doc(userId)
-        .update({'profileImage': profileImage})
-        .then((value) { print("profile Updated");
-        AuthenticationHelper.instance.getUser();
-        return "Success";})
-        .catchError((error) { print("Failed to update profile: $error");
-        return "Failed";});
-     return "Success";
+    String userId = await UserStateHiveHelper.instance.getUserId();
+    users.doc(userId).update({'profileImage': profileImage}).then((value) {
+      print("profile Updated");
+      //AuthenticationHelper.instance.getUserProfile();
+      return "Success";
+    }).catchError((error) {
+      print("Failed to update profile: $error");
+      return "Failed";
+    });
+    return "Success";
   }
+
   /// share post
   static void onShare(BuildContext context, String postUrl) async {
     print("post url-------$postUrl");
@@ -121,22 +128,38 @@ return "Success";
   }
 
   /// update users friend list token detail from database
-   getFeeds()  {
-     FirebaseFirestore.instance
-         .collection('feedPosts')
-         .snapshots().listen(((QuerySnapshot<Map<String, dynamic>> querySnapshot) {
-       for (var doc in querySnapshot.docs) {
-         doc.data()[''];
-         print("feed json------${jsonEncode(querySnapshot.docs.first.data())}");
-       }
+  static getFeeds() {
+    FirebaseFirestore.instance
+        .collection('feedPosts')
+        .snapshots()
+        .listen(((QuerySnapshot<Map<String, dynamic>> querySnapshot) {
+      feedData1.value.clear();
+      feedData1.value.addAll(querySnapshot.docs
+          .map((doc) => FeedModel.fromJson(doc.data()))
+          .toList(growable: true));
+      feedData1.notifyListeners();
+    }));
+  }
 
-     }
-     ));
+  static getPersonalFeed() async {
+    String userId = await UserStateHiveHelper.instance.getUserId();
+    FirebaseFirestore.instance
+        .collection('feedPosts')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .listen((QuerySnapshot<Map<String, dynamic>> querySnapshot) {
+      personalFeed.value.clear();
+      personalFeed.value.addAll(querySnapshot.docs
+          .map((doc) => FeedModel.fromJson(doc.data()))
+          .toList(growable: true));
+      postCounter.value = personalFeed.value.length;
+      personalFeed.notifyListeners();
+    });
   }
 
   /// Function for pick profile image through image picker
   static Future<File?> getImage(source, context) async {
-    String userId=AuthenticationHelper.instance.userModel.userId!;
+    String userId = await UserStateHiveHelper.instance.getUserId();
     File? _image;
     try {
       ImagePicker _picker = ImagePicker();
@@ -149,11 +172,10 @@ return "Success";
       } else {
         _image = File(image.path);
         String dir = path.dirname(_image.path);
-        String newPath = path.join(dir, userId+'profilePic.jpg');
+        String newPath = path.join(dir, userId + 'profilePic.jpg');
         print('NewPath: ${newPath}');
         _image.renameSync(newPath);
         return File(newPath);
-
       }
     } catch (e) {
       print(e);

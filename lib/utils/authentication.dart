@@ -3,16 +3,15 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:socialmediaapp/local_db/user_state_hive_helper.dart';
 import 'package:socialmediaapp/user_model.dart';
-import 'package:socialmediaapp/utils/alert_dialog.dart';
+ValueNotifier<UserModel> profileData = ValueNotifier<UserModel>(UserModel());
 
 class AuthenticationHelper{
   AuthenticationHelper.__internal();
   static final AuthenticationHelper _instance = AuthenticationHelper.__internal();
   static AuthenticationHelper get instance => _instance;
-
-  UserModel _userModel = UserModel();
   static CollectionReference users = FirebaseFirestore.instance.collection('users');
 
   ///Sign in with email and password
@@ -66,10 +65,8 @@ class AuthenticationHelper{
   }
 
   ///Add new user into database
-// Create a CollectionReference called users that references the firestore collection
   static Future<void> addUser(String emailAddress, String password,String username, String userId,) async {
-    return
-        users.doc(userId).set({
+    return users.doc(userId).set({
       'emailAddress':emailAddress,
       'password':password,
       'username': username,
@@ -100,16 +97,16 @@ class AuthenticationHelper{
   }
 
   /// delete sent request from database
-   Future<void> deleteSentRequest(String userId, String friendUserId) async {
-    return users.doc(userId)
-        .update({'sentRequest':FieldValue.arrayRemove([friendUserId])})
-        .then((value) => print("User Updated"))
+   Future<void> deleteSentRequest(String senderId, String receiverId) async {
+    return users.doc(senderId)
+        .update({'sentRequest':FieldValue.arrayRemove([receiverId])})
+        .then((value) => print("User deleted------value"))
         .catchError((error) => print("Failed to update user: $error"));
   }
   /// delete received request from database
-   Future<void> deleteReceivedRequest(String userId, String friendUserId) async {
-    return users.doc(userId)
-        .update({'receiveRequest':FieldValue.arrayRemove([friendUserId])})
+   Future<void> deleteReceivedRequest(String receiverId, String senderId) async {
+    return users.doc(receiverId)
+        .update({'receiveRequest':FieldValue.arrayRemove([senderId])})
         .then((value) => print("User Updated"))
         .catchError((error) => print("Failed to update user: $error"));
   }
@@ -124,20 +121,28 @@ class AuthenticationHelper{
           print("request sent");} )
         .catchError((error) => print("Failed to sent  request: $error"));
   }
-  /// update users friend list token detail from database
-    Future<void> getUser() async {
+  /// get user Profile
+    Future<void> getUserProfile() async {
     String userId= await UserStateHiveHelper.instance.getUserId();
     FirebaseFirestore.instance
         .collection('users')
         .doc(userId)
         .snapshots().listen(((DocumentSnapshot documentSnapshot) { if (documentSnapshot.exists) {
       print('Document exists on the database');
-      _userModel = UserModel.fromJson(jsonDecode(jsonEncode(documentSnapshot.data())));
-     // print('${jsonDecode(jsonEncode(documentSnapshot.data()))}');
+      profileData.value = UserModel.fromJson(jsonDecode(jsonEncode(documentSnapshot.data())));
+     profileData.notifyListeners();
     }}));
          }
 
-  UserModel get userModel => _userModel;
+  /// get friend request list
+   getRequestList() async{
+    String userId= await UserStateHiveHelper.instance.getUserId();
+     return FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .snapshots();
+  }
+
 
   /// get device token using firebase
   static Future<String?> getFCMToken() async {

@@ -1,6 +1,5 @@
+import 'dart:async';
 import 'dart:io';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -9,8 +8,10 @@ import 'package:socialmediaapp/screens/Friends.dart';
 import 'package:socialmediaapp/screens/feed_screen.dart';
 import 'package:socialmediaapp/screens/login.dart';
 import 'package:socialmediaapp/screens/profile.dart';
+import 'package:socialmediaapp/user_model.dart';
 import 'package:socialmediaapp/utils/alert_dialog.dart';
 import 'package:socialmediaapp/utils/authentication.dart';
+import 'package:socialmediaapp/utils/call_manager.dart';
 import 'package:socialmediaapp/utils/colors.dart';
 import 'package:socialmediaapp/utils/feed_manager.dart';
 import 'package:socialmediaapp/widgets/camera_bottom_sheet.dart';
@@ -26,31 +27,24 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int pageIndex = 0;
-  bool isLoading=false;
-String? userId;
-String? username;
+//String? userId;
   final pages = [
      const Feed(),
     const Friends(),
     const ProfileScreen()
   ];
+  @override
+  void dispose() {
+    super.dispose();
+  }
 @override
   void initState() {
-    // TODO: implement initState
     super.initState();
+
     getUsers();
   }
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: AuthenticationHelper.users.doc(userId).snapshots(),
-      builder: (context, snapshot) {
-        if(snapshot.hasError) {
-          return Container();
-        } else if(!(snapshot.hasData)){
-          return Center(child: const CircularProgressIndicator());
-        }
-        else {
           return Scaffold(
             backgroundColor: Colors.white,
             appBar: AppBar(
@@ -58,11 +52,18 @@ String? username;
               leadingWidth: 120,
               leading: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Center(child: Text(
-                  "${AuthenticationHelper.instance.userModel.username}",
-                  style: const TextStyle(
-                      color: Colors.black, fontWeight: FontWeight.bold),)),
-              ),
+                child: Center(
+                    child: ValueListenableBuilder(
+                valueListenable: profileData,
+                builder: (BuildContext context , UserModel profileData, Widget? child){
+                  return Text(
+                  profileData.username??"",
+                style: const TextStyle(
+                color: Colors.black, fontWeight: FontWeight.bold),);
+                },
+                )
+                )),
+
               title: Text(
                 "Instagram",
                 style: TextStyle(
@@ -91,25 +92,21 @@ String? username;
               centerTitle: true,
               backgroundColor: Colors.white,
             ),
-            body: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : pages[pageIndex],
-            bottomNavigationBar: buildMyNavBar(context, snapshot),
+            body: pages[pageIndex],
+            bottomNavigationBar: buildMyNavBar(context ),
           );
         }
-      }
-    );
-  }
+
+
   Future<void> getUsers() async {
-  AuthenticationHelper.instance.getUser();
-     String id= await UserStateHiveHelper.instance.getUserId();
-     String name= await UserStateHiveHelper.instance.getUserName();
-setState(() {
+  AuthenticationHelper.instance.getUserProfile();
+  //CallManager.instance.getCalls();
+     //String id= await UserStateHiveHelper.instance.getUserId();
+/*setState(() {
   userId=id;
-  username=name;
-});
+});*/
   }
-  Container buildMyNavBar(BuildContext context, AsyncSnapshot<DocumentSnapshot<Object?>> snapshot,) {
+  Container buildMyNavBar(BuildContext context) {
     return Container(
       height: 60,
       decoration: const BoxDecoration(
@@ -126,6 +123,7 @@ setState(() {
           IconButton(
             enableFeedback: false,
             onPressed: () {
+              //call.value=true;
               setState(() {
                 pageIndex = 0;
               });
@@ -161,23 +159,29 @@ setState(() {
               size: 28,
             ),
           ),
-                 IconButton(
-                  enableFeedback: false,
-                  onPressed: () {
-                    setState(() {
-                      pageIndex = 2;
-                    });
-                  },
-                  icon: pageIndex == 2
-                      ? ProfileImageWidget(
-                    profileImage: snapshot.data!['profileImage'],
-                    height: 35,
-                    width: 35,
-                    borderWidth: 1.5,
-                    borderColor: Colors.black,)
-                      : ProfileImageWidget(
-                    profileImage: snapshot.data!['profileImage'], height: 35, width: 35,),
-                )
+        ValueListenableBuilder(
+          valueListenable: profileData,
+          builder: (BuildContext context , UserModel profileData, Widget? child){
+            return IconButton(
+              enableFeedback: false,
+              onPressed: () {
+                setState(() {
+                  pageIndex = 2;
+                });
+              },
+              icon: pageIndex == 2
+                  ? ProfileImageWidget(
+                profileImage: profileData.profileImage,
+                height: 35,
+                width: 35,
+                borderWidth: 1.5,
+                borderColor: Colors.black,)
+                  : ProfileImageWidget(
+                profileImage: profileData.profileImage, height: 35, width: 35,),
+            );
+          },
+        ),
+
         ],
       ),
     );
@@ -199,17 +203,11 @@ setState(() {
     }
     if (status.isGranted) {
       Navigator.pop(context);
-      setState(() {
-        isLoading=true;
-      });
       File? _imageFile = await _getImage(ImageSource.camera, context);
       if (_imageFile != null) {
         String response = await FeedManager.uploadImageToFirebase(context, _imageFile);
         if (response != "Failed") {
-        String message= await FeedManager.addPost(userId!,response);
-        setState(() {
-          isLoading= false;
-        });
+        String message= await FeedManager.addPost(response);
         if(message=="Success"){
           AlertDialogHelper()
               .showSnackbar(context, "Post has been successfully uploaded", color: AppColors.success);
@@ -220,16 +218,10 @@ setState(() {
         }
         }
          else {
-          setState(() {
-            isLoading= false;
-          });
            AlertDialogHelper()
               .showSnackbar(context, response, color: AppColors.danger);
         }
       }
-      setState(() {
-        isLoading=false;
-      });
     }
   }
   /// Handle camera icon tap to change profile image
@@ -244,17 +236,11 @@ setState(() {
     }
     if (status.isGranted) {
       Navigator.pop(context);
-      setState(() {
-        isLoading=true;
-      });
       File? _imageFile = await _getImage(ImageSource.gallery, context);
       if (_imageFile != null) {
         String response = await FeedManager.uploadImageToFirebase(context, _imageFile);
         if (response != "Failed") {
-          String message= await FeedManager.addPost(userId!, response);
-          setState(() {
-            isLoading=false;
-          });
+          String message= await FeedManager.addPost(response);
           if(message=="Success"){
             AlertDialogHelper()
                 .showSnackbar(context, "Post has been successfully uploaded", color: AppColors.success);
@@ -264,16 +250,11 @@ setState(() {
                 .showSnackbar(context, message, color: AppColors.danger);
           }
         } else {
-          setState(() {
-            isLoading=false;
-          });
           AlertDialogHelper()
               .showSnackbar(context, response, color: AppColors.danger);
         }
       }
-      setState(() {
-        isLoading=false;
-      });
+
     }
   }
   /// Function for pick image through image picker
@@ -289,7 +270,6 @@ setState(() {
         return _image!;
       } else {
         _image = File(image.path);
-        //_profileProvider!.profilePic = File(image.path).path;
         return File(image.path);
       }
     } catch (e) {

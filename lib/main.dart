@@ -1,10 +1,15 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:socialmediaapp/local_db/user_state_hive_helper.dart';
-import 'package:socialmediaapp/screens/home_screen.dart';
-import 'package:socialmediaapp/screens/login.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
+import 'package:socialmediaapp/Models/call_receive_model.dart';
+import 'package:socialmediaapp/screens/call_receive_screen.dart';
+import 'package:socialmediaapp/screens/call_screen.dart';
 import 'package:socialmediaapp/screens/splash.dart';
+import 'package:socialmediaapp/utils/call_manager.dart';
 import 'package:socialmediaapp/utils/firebase_messaging_helper.dart';
 
 
@@ -15,7 +20,9 @@ void main() async{
   /// FireBase Initialised
   await Firebase.initializeApp();
   FirebaseMessagingHelper.instance.initializeFirebase();
-  runApp( MyApp()/*FirestoreExampleApp()*/);
+
+  runApp(  const MyApp()
+    /*FirestoreExampleApp()*/);
 }
 
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -27,36 +34,93 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  //bool call=false;
   // This widget is the root of your application.
+  //StreamSubscription? callSubscription;
+ // List<QueryDocumentSnapshot<Map<String, dynamic>>> calls=[];
   @override
   void initState() {
     super.initState();
     FirebaseMessagingHelper.instance.notificationListeners();
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      print("user auth changed-------${user!.uid}");
+      CallManager.instance.getCalls(user.uid);
+     // final String uid = user.uid;
+      /*final stream = FirebaseFirestore.instance
+          .collection("calls")
+          .where("receiver", isEqualTo: uid)
+          .orderBy("time")
+          .snapshots();
+      callSubscription?.cancel();
+       callSubscription = stream.listen((value) {
+        calls = value.docs;
+      });*/
+    });
+  }
+  @override
+  void dispose(){
+    //callSubscription?.cancel();
+    super.dispose();
   }
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      navigatorKey: navigatorKey,
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: ButtonStyle(
-            padding: MaterialStateProperty.all<EdgeInsets>(
-              const EdgeInsets.all(30),
+      home: ValueListenableBuilder(
+        builder: (BuildContext context, CallReceiveModel call, Widget? child){
+          return Stack(
+            children: [
+              MaterialApp(
+                debugShowCheckedModeBanner: false,
+                navigatorKey: navigatorKey,
+                title: 'Flutter Demo',
+                theme: ThemeData(
+                  inputDecorationTheme: InputDecorationTheme(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  outlinedButtonTheme: OutlinedButtonThemeData(
+                    style: ButtonStyle(
+                      padding: MaterialStateProperty.all<EdgeInsets>(
+                        const EdgeInsets.all(30),
+                      ),
+                      backgroundColor: MaterialStateProperty.all<Color>(Colors.blue),
+                      foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                    ),
+                  ),
+                ),
+                //home: const StreamExample(),
+                home: const SplashScreen(),
+              ),
+              if(call.call?.isNotEmpty??false)  CallReceiveScreen()
+            ],
+            /*child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            navigatorKey: navigatorKey,
+            title: 'Flutter Demo',
+            theme: ThemeData(
+              inputDecorationTheme: InputDecorationTheme(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              outlinedButtonTheme: OutlinedButtonThemeData(
+                style: ButtonStyle(
+                  padding: MaterialStateProperty.all<EdgeInsets>(
+                    const EdgeInsets.all(30),
+                  ),
+                  backgroundColor: MaterialStateProperty.all<Color>(Colors.blue),
+                  foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                ),
+              ),
             ),
-            backgroundColor: MaterialStateProperty.all<Color>(Colors.blue),
-            foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-          ),
-        ),
+            //home: const StreamExample(),
+            home:  call?CallScreen():SplashScreen(),
+          ),*/
+          );
+        }, valueListenable: receiveCalls,
       ),
-      //home: const MyHomePage(title: 'Flutter Demo Home Page'),
-      home: SplashScreen(),
+
     );
   }
 
