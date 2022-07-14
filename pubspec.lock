@@ -127,20 +127,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "0.7.5"
-  device_apps:
-    dependency: "direct main"
-    description:
-      name: device_apps
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "2.2.0"
-  external_app_launcher:
-    dependency: "direct main"
-    description:
-      name: external_app_launcher
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "3.0.0"
   fake_async:
     dependency: transitive
     description:
@@ -184,12 +170,12 @@ packages:
     source: hosted
     version: "3.3.8"
   firebase_core:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: firebase_core
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.12.0"
+    version: "1.19.2"
   firebase_core_platform_interface:
     dependency: transitive
     description:
@@ -203,21 +189,7 @@ packages:
       name: firebase_core_web
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.6.4"
-  firebase_dynamic_links:
-    dependency: "direct main"
-    description:
-      name: firebase_dynamic_links
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "4.3.1"
-  firebase_dynamic_links_platform_interface:
-    dependency: transitive
-    description:
-      name: firebase_dynamic_links_platform_interface
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "0.2.3+6"
+    version: "1.7.0"
   firebase_messaging:
     dependency: "direct main"
     description:
@@ -314,13 +286,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "5.0.0"
-  flutter_phoenix:
-    dependency: "direct main"
-    description:
-      name: flutter_phoenix
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "1.0.0"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
@@ -408,13 +373,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.5.0"
-  installed_apps:
-    dependency: "direct main"
-    description:
-      name: installed_apps
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "1.3.1"
   intl:
     dependency: transitive
     description:

@@ -41,7 +41,7 @@ class FirebaseMessagingHelper {
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       log('On Message: ${message.notification!.body}');
-      message.data['type']=="requestSent"?AlertDialogHelper.notificationAlert(navigatorKey.currentContext!, message):AlertDialogHelper.callAlert(navigatorKey.currentContext!, message);
+      message.data['type']=="requestSent"?AlertDialogHelper.notificationAlert(navigatorKey.currentContext!, message):null/*AlertDialogHelper.callAlert(navigatorKey.currentContext!, message)*/;
     });
   }
 /// Send notification

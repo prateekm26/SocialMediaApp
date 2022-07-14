@@ -1,11 +1,7 @@
 
-import 'package:device_apps/device_apps.dart';
-import 'package:external_app_launcher/external_app_launcher.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_phoenix/flutter_phoenix.dart';
-import 'package:installed_apps/installed_apps.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socialmediaapp/local_db/user_state_hive_helper.dart';
 import 'package:socialmediaapp/screens/call_receive_screen.dart';
@@ -54,7 +50,7 @@ class AlertDialogHelper {
       BuildContext context,RemoteMessage message) async {
     print("message-----${message.data['type']}");
     //Phoenix.rebirth(context);
-    DeviceApps.openApp('com.example.socialmediaapp');
+    //DeviceApps.openApp('com.example.socialmediaapp');
     //await InstalledApps.startApp('com.example.socialmediaapp');
     /*await LaunchApp.openApp(
       androidPackageName: 'com.example.socialmediaapp',
